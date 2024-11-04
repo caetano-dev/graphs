@@ -1,5 +1,4 @@
 from collections import defaultdict
-import random
 from typing import List
 # create all possible permutations of the edges of this graph
 graph = {
@@ -7,7 +6,7 @@ graph = {
     2: [],
     3: [5],
     4: [2],
-    5: [4,2,6],
+    5: [6,2,4],
     6: []
 }
 
