@@ -1,9 +1,7 @@
-from itertools import permutations
-from copy import deepcopy
-import itertools
+from itertools import permutations, product
+from collections import deque
 
-# Original graph definition
-graph = {
+grafo = {
     1: [3, 2],
     2: [],
     3: [5],
@@ -11,97 +9,79 @@ graph = {
     5: [6, 2, 4],
     6: []
 }
+"""
+ideia: o algoritmo tem outputs diferentes dependendo da ordem dos vizinhos.
+grafo = {
+    1: [3, 2],
+    2: [],
+    3: [5],
+    4: [2],
+    5: [6, 2, 4],
+    6: []
+}
+vai ter um output diferente de:
+grafo = {
+   1: [3, 2],
+   2: [],
+   3: [5],
+   4: [2],
+   5: [2, 4, 6],
+   6: []
+}
+Então, podemos fazer permutações dos vizinhos de cada vértice e subtrair esse output da lista de outputs possíveis.
+"""
 
-def topological_sort(graph):
-    """Deterministic topological sort algorithm (Kahn's algorithm)."""
-    q = []
-    topological_order = []
-    indegree = {v: 0 for v in graph}
+#algoritmo do slide (pagina 15)
+def ordenacao_topologica(grafo):
+    grau_entrada = {v: 0 for v in grafo}
+    for vizinhos in grafo.values():
+        for w in vizinhos:
+            grau_entrada[w] += 1
 
-    # Calculate the indegree of each vertex
-    for v in graph:
-        for w in graph[v]:
-            indegree[w] += 1
+    fila = deque([v for v in grafo if grau_entrada[v] == 0])
+    ordem_topologica = []
 
-    # Enqueue vertices with no incoming edges
-    for v in indegree:
-        if indegree[v] == 0:
-            q.append(v)
+    while fila:
+        v = fila.popleft()
+        ordem_topologica.append(v)
+        for w in grafo[v]:
+            grau_entrada[w] -= 1
+            if grau_entrada[w] == 0:
+                fila.append(w)
 
-    # Perform topological sort
-    while q:
-        v = q.pop(0)
-        topological_order.append(v)
-        for w in graph.get(v, []):
-            indegree[w] -= 1
-            if indegree[w] == 0:
-                q.append(w)
+    return ordem_topologica
 
-    return topological_order
+def eh_ordenacao_topologica_valida(ordem, grafo):
+    posicao = {v: i for i, v in enumerate(ordem)}
+    return all(posicao[v] < posicao[w] for v in grafo for w in grafo[v])
 
-def is_valid_topological_sort(order, graph):
-    """Check if a given order is a valid topological sort."""
-    position = {vertex: i for i, vertex in enumerate(order)}
+def obter_ordenacoes_topologicas_validas(grafo):
+    return [list(perm) for perm in permutations(grafo) if eh_ordenacao_topologica_valida(perm, grafo)]
 
-    for vertex in graph:
-        for neighbor in graph[vertex]:
-            if position[vertex] > position[neighbor]:
-                return False
-    return True
+def obter_ordens_possiveis_do_algoritmo(grafo):
+    variacoes_grafo = [list(permutations(vizinhos)) for vizinhos in grafo.values()]
+    saidas_possiveis = set()
 
-def get_all_valid_topological_sorts(graph):
-    """Generate all valid topological sorts for the graph."""
-    vertices = list(graph.keys())
-    valid_sorts = []
+    for variacao in product(*variacoes_grafo):
+        novo_grafo = {v: list(variacao[i]) for i, v in enumerate(grafo)}
+        saida_ordenada = tuple(ordenacao_topologica(novo_grafo))
+        saidas_possiveis.add(saida_ordenada)
 
-    # Try all possible permutations
-    for perm in permutations(vertices):
-        if is_valid_topological_sort(perm, graph):
-            valid_sorts.append(list(perm))
+    return [list(saida) for saida in saidas_possiveis]
 
-    return valid_sorts
+def encontrar_ordenacoes_impossiveis(grafo):
+    todas_ordenacoes_validas = obter_ordenacoes_topologicas_validas(grafo)
+    saidas_possiveis = obter_ordens_possiveis_do_algoritmo(grafo)
+    ordenacoes_impossiveis = [ordem for ordem in todas_ordenacoes_validas if ordem not in saidas_possiveis]
 
-def get_algorithm_possible_outputs(graph):
-    """Get all possible outputs from the original algorithm with different graph variations."""
-    # Generate all possible orderings of the adjacency lists
-    all_possible_outputs = set()  # To avoid duplicates
+    return saidas_possiveis, ordenacoes_impossiveis
 
-    # Generate all possible orders for the adjacency list of each node
-    graph_variations = []
-    for node, neighbors in graph.items():
-        graph_variations.append(list(itertools.permutations(neighbors)))
+ordenacoes_possiveis, ordenacoes_impossiveis = encontrar_ordenacoes_impossiveis(grafo)
 
-    # Iterate over all combinations of permutations of adjacency lists
-    for variation in itertools.product(*graph_variations):
-        # Create a new graph with this specific adjacency list order
-        new_graph = deepcopy(graph)
-        for i, node in enumerate(graph):
-            new_graph[node] = list(variation[i])
+print("ordenações topológicas produzidas pelo grafo no algoritmo:")
+for ordem in ordenacoes_possiveis:
+    print(ordem)
 
-        # Run the topological sort and store the result
-        sorted_output = topological_sort(new_graph)
-        all_possible_outputs.add(tuple(sorted_output))
-
-    return list(map(list, all_possible_outputs))  # Convert back to list of lists
-
-def find_impossible_sortings(graph):
-    """Find all valid topological sorts that the original algorithm cannot produce."""
-    all_valid_sorts = get_all_valid_topological_sorts(graph)
-    possible_outputs = get_algorithm_possible_outputs(graph)
-
-    # Find sorts that are valid but not produced by any variation of the algorithm
-    impossible_sorts = [sort for sort in all_valid_sorts if sort not in possible_outputs]
-
-    return possible_outputs, impossible_sorts
-
-# Test the function
-possible_sorts, impossible_sorts = find_impossible_sortings(graph)
-
-# Print the results
-print("All possible topological sorts produced by the algorithm with different graph variations:")
-for sort in possible_sorts:
-    print(sort)
-
-print(f"\nFound {len(impossible_sorts)} impossible sortings:")
-for sort in impossible_sorts:
-    print(sort)
+print("ordenações impossíveis pelo algoritmo:")
+for ordem in ordenacoes_impossiveis:
+    print(ordem)
